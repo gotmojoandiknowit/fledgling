@@ -9,14 +9,16 @@ interface BirdsStore {
   error: string | null;
   location: LocationState | null;
   searchRadius: number; // in miles
-  birdImages: Record<string, string>; // Map of speciesCode to image URL
+  resultsLimit: number | null; // null means "all"
+  birdImages: Record<string, string[]>; // Map of speciesCode to array of image URLs
   setSearchRadius: (radius: number) => void;
+  setResultsLimit: (limit: number | null) => void;
   setLocation: (location: LocationState) => void;
   setBirds: (birds: BirdObservation[]) => void;
   setIsLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
-  setBirdImages: (images: Record<string, string>) => void;
-  addBirdImages: (images: Record<string, string>) => void;
+  setBirdImages: (images: Record<string, string[]>) => void;
+  addBirdImages: (images: Record<string, string[]>) => void;
 }
 
 export const useBirdsStore = create<BirdsStore>()(
@@ -27,8 +29,10 @@ export const useBirdsStore = create<BirdsStore>()(
       error: null,
       location: null,
       searchRadius: 5, // Default to 5 miles
+      resultsLimit: 25, // Default to 25 results
       birdImages: {},
       setSearchRadius: (radius) => set({ searchRadius: radius }),
+      setResultsLimit: (limit) => set({ resultsLimit: limit }),
       setLocation: (location) => set({ location }),
       setBirds: (birds) => set({ birds }),
       setIsLoading: (isLoading) => set({ isLoading }),
@@ -43,6 +47,7 @@ export const useBirdsStore = create<BirdsStore>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ 
         searchRadius: state.searchRadius,
+        resultsLimit: state.resultsLimit,
         birdImages: state.birdImages, // Persist bird images to avoid refetching
       }),
     }

@@ -1,75 +1,141 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
+import { useState, memo, useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, Platform, Animated } from 'react-native';
 import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import { BirdObservation } from '@/types/birds';
 import { useBirdsStore } from '@/hooks/use-birds-store';
-import { BirdImageModal } from './BirdImageModal';
+import { BirdDetailsModal } from './BirdDetailsModal';
+import { Calendar, Eye } from 'lucide-react-native';
 
 interface BirdCardProps {
   bird: BirdObservation;
 }
 
-export function BirdCard({ bird }: BirdCardProps) {
-  const [imageModalVisible, setImageModalVisible] = useState(false);
+// Memoized component to prevent unnecessary re-renders
+export const BirdCard = memo(({ bird }: BirdCardProps) => {
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const { birdImages } = useBirdsStore();
-  const birdImage = birdImages[bird.speciesCode];
+  const scaleAnim = useRef(new Animated.Value(1)).current;
   
-  // Placeholder image URL
-  const placeholderImageUrl = 'https://i.ibb.co/Pv5xKZdq/fledgy.png';
+  // Get the bird images array or use an empty array if none exist
+  const birdImageUrls = birdImages[bird.speciesCode] || [];
   
-  const openImageModal = () => {
-    if (birdImage) {
-      setImageModalVisible(true);
+  // Use the first image as the main display image, or placeholder if none
+  const mainImageUrl = birdImageUrls.length > 0 ? birdImageUrls[0] : 'https://i.ibb.co/Pv5xKZdq/fledgy.png';
+  
+  const openDetailsModal = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.selectionAsync();
     }
+    setDetailsModalVisible(true);
   };
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.98,
+      friction: 8,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 8,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // Calculate likelihood color based on percentage
+  const getLikelihoodColor = (likelihood: number) => {
+    if (likelihood >= 80) return '#2D8B4F'; // High likelihood - green
+    if (likelihood >= 50) return '#F9A825'; // Medium likelihood - amber
+    return '#E67C73'; // Low likelihood - red
+  };
+
+  // Get likelihood label based on percentage
+  const getLikelihoodLabel = (likelihood: number) => {
+    if (likelihood >= 80) return 'Very likely';
+    if (likelihood >= 50) return 'Likely';
+    if (likelihood >= 30) return 'Possible';
+    return 'Uncommon';
+  };
+
+  const likelihoodColor = getLikelihoodColor(bird.likelihood);
 
   return (
     <>
-      <View style={styles.card}>
+      <Animated.View style={[
+        styles.cardContainer,
+        { transform: [{ scale: scaleAnim }] }
+      ]}>
         <Pressable 
-          style={styles.imageContainer}
-          onPress={openImageModal}
+          style={styles.card}
+          onPress={openDetailsModal}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          android_ripple={{ color: 'rgba(0, 0, 0, 0.05)' }}
         >
-          <Image
-            source={{ uri: birdImage || placeholderImageUrl }}
-            style={styles.birdImage}
-            contentFit="cover"
-            transition={200}
-            placeholder={Platform.OS === 'web' ? undefined : { color: '#E1E2DE' }}
-          />
-        </Pressable>
-        
-        <View style={styles.textContent}>
-          <Text style={styles.commonName}>{bird.comName}</Text>
-          <Text style={styles.scientificName}>{bird.sciName}</Text>
-          <Text style={styles.lastReported}>
-            Last reported: {new Date(bird.obsDt).toLocaleDateString()}
-          </Text>
-          <View style={styles.statsContainer}>
-            <Text style={styles.likelihood}>
-              {bird.likelihood}% likely to see
-            </Text>
+          <View style={styles.imageContainer}>
+            <Image
+              source={{ uri: mainImageUrl }}
+              style={styles.birdImage}
+              contentFit="cover"
+              transition={200}
+              placeholder={Platform.OS === 'web' ? undefined : { color: '#E1E2DE' }}
+              cachePolicy="memory-disk"
+            />
           </View>
-        </View>
-      </View>
+          
+          <View style={styles.textContent}>
+            <Text style={styles.commonName} numberOfLines={1} ellipsizeMode="tail">
+              {bird.comName}
+            </Text>
+            <Text style={styles.scientificName} numberOfLines={1} ellipsizeMode="tail">
+              {bird.sciName}
+            </Text>
+            
+            <View style={styles.statsContainer}>
+              <View style={styles.statItem}>
+                <Calendar size={14} color="#666" />
+                <Text style={styles.statText}>
+                  {new Date(bird.obsDt).toLocaleDateString()}
+                </Text>
+              </View>
+              
+              <View style={styles.likelihoodContainer}>
+                <View style={[styles.likelihoodBadge, { backgroundColor: likelihoodColor }]}>
+                  <Eye size={12} color="#FFFFFF" />
+                  <Text style={styles.likelihoodText}>
+                    {bird.likelihood}%
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </Pressable>
+      </Animated.View>
 
-      {birdImage && (
-        <BirdImageModal
-          visible={imageModalVisible}
-          imageUrl={birdImage}
-          onClose={() => setImageModalVisible(false)}
-        />
-      )}
+      <BirdDetailsModal
+        visible={detailsModalVisible}
+        bird={bird}
+        imageUrl={mainImageUrl}
+        onClose={() => setDetailsModalVisible(false)}
+      />
     </>
   );
-}
+});
 
 const styles = StyleSheet.create({
+  cardContainer: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+  },
   card: {
     backgroundColor: 'white',
     borderRadius: 12,
-    marginHorizontal: 16,
-    marginVertical: 8,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
@@ -83,7 +149,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: 110,
-    aspectRatio: 1,
+    height: 110,
     overflow: 'hidden',
   },
   birdImage: {
@@ -94,7 +160,7 @@ const styles = StyleSheet.create({
   textContent: {
     flex: 1,
     padding: 16,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
   },
   commonName: {
     fontSize: 18,
@@ -106,20 +172,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontStyle: 'italic',
     color: '#666',
-    marginBottom: 4,
-  },
-  lastReported: {
-    fontSize: 14,
-    color: '#666',
     marginBottom: 8,
   },
   statsContainer: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  likelihood: {
-    fontSize: 14,
-    color: '#2D3F1F',
-    fontWeight: '500',
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statText: {
+    fontSize: 13,
+    color: '#666',
+  },
+  likelihoodContainer: {
+    alignItems: 'flex-end',
+  },
+  likelihoodBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  likelihoodText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
   }
 });

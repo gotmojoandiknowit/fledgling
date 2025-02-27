@@ -9,7 +9,7 @@ function isRelevantBirdImage(filename: string, scientificName: string, commonNam
   const isImageFile = imageExtensions.some(ext => filename.endsWith(ext));
   
   // Filter out audio, video, document files, icons, and thumbnails
-  const excludedTerms = ['.ogg', '.mp3', '.wav', '.mp4', '.pdf', '.doc', '.docx', 'icon', 'thumbnail', 'thumb', 'logo'];
+  const excludedTerms = ['.ogg', '.mp3', '.wav', '.mp4', '.pdf', '.doc', '.docx', 'icon', 'thumbnail', 'thumb', 'logo', 'gosling'];
   if (excludedTerms.some(term => filename.includes(term)) || !isImageFile) {
     return false;
   }
@@ -113,10 +113,73 @@ export async function fetchBirdImage(scientificName: string, commonName?: string
   }
 }
 
-// Function to fetch multiple bird images in parallel
-export async function fetchBirdImages(birds: Array<{ speciesCode: string; sciName: string; comName: string }>) {
+// Function to fetch multiple bird images (up to 5 per species)
+export async function fetchMultipleBirdImages(scientificName: string, commonName?: string, maxImages: number = 5): Promise<string[]> {
+  try {
+    const images: string[] = [];
+    
+    // First try to get the main Wikipedia image
+    const mainImage = await fetchBirdImage(scientificName, commonName);
+    if (mainImage) {
+      images.push(mainImage);
+    }
+    
+    // If we need more images, search Wikimedia Commons
+    if (images.length < maxImages) {
+      // Search for more images on Commons
+      const commonsUrl = `https://commons.wikimedia.org/w/api.php?action=query&format=json&list=search&srsearch=${encodeURIComponent(scientificName + " bird photo")}&srnamespace=6&srlimit=20&origin=*`;
+      
+      const commonsResponse = await fetch(commonsUrl);
+      const commonsData = await commonsResponse.json();
+      
+      if (commonsData.query.search && commonsData.query.search.length > 0) {
+        // Filter results to find relevant images
+        const validResults = commonsData.query.search
+          .filter(result => isRelevantBirdImage(result.title, scientificName, commonName))
+          .slice(0, maxImages); // Limit to maxImages results
+        
+        // Process each valid result to get the image URL
+        for (const result of validResults) {
+          if (images.length >= maxImages) break;
+          
+          const fileName = result.title;
+          
+          // Get the image URL
+          const fileInfoUrl = `https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=imageinfo&titles=${encodeURIComponent(fileName)}&iiprop=url&iiurlwidth=500&origin=*`;
+          
+          try {
+            const fileInfoResponse = await fetch(fileInfoUrl);
+            const fileInfoData = await fileInfoResponse.json();
+            
+            const filePages = fileInfoData.query.pages;
+            const filePageId = Object.keys(filePages)[0];
+            
+            if (filePages[filePageId].imageinfo && filePages[filePageId].imageinfo[0]) {
+              const imageUrl = filePages[filePageId].imageinfo[0].thumburl;
+              
+              // Only add if it's not already in the array
+              if (!images.includes(imageUrl)) {
+                images.push(imageUrl);
+              }
+            }
+          } catch (error) {
+            console.error(`Error fetching image info for ${fileName}:`, error);
+          }
+        }
+      }
+    }
+    
+    return images.slice(0, maxImages); // Ensure we don't exceed maxImages
+  } catch (error) {
+    console.error('Error fetching multiple bird images:', error);
+    return [];
+  }
+}
+
+// Function to fetch multiple bird images in parallel for multiple birds
+export async function fetchBirdImages(birds: Array<{ speciesCode: string; sciName: string; comName: string }>, maxImagesPerBird: number = 5) {
   // Create a map to store images by species code
-  const imageMap: Record<string, string> = {};
+  const imageMap: Record<string, string[]> = {};
   
   // Limit concurrent requests to avoid overwhelming the API
   const batchSize = Platform.OS === 'web' ? 3 : 5;
@@ -128,12 +191,12 @@ export async function fetchBirdImages(birds: Array<{ speciesCode: string; sciNam
     // Process each batch in parallel
     const batchPromises = batch.map(async (bird) => {
       try {
-        const imageUrl = await fetchBirdImage(bird.sciName, bird.comName);
-        if (imageUrl) {
-          imageMap[bird.speciesCode] = imageUrl;
+        const images = await fetchMultipleBirdImages(bird.sciName, bird.comName, maxImagesPerBird);
+        if (images.length > 0) {
+          imageMap[bird.speciesCode] = images;
         }
       } catch (error) {
-        console.error(`Error fetching image for ${bird.sciName}:`, error);
+        console.error(`Error fetching images for ${bird.sciName}:`, error);
       }
     });
     

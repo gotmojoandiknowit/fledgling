@@ -9,9 +9,11 @@ interface RotatingLoadingImageProps {
 
 export function RotatingLoadingImage({ imageUrl, size = 120 }: RotatingLoadingImageProps) {
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
   useEffect(() => {
-    const animation = Animated.loop(
+    // Rotation animation
+    const rotationAnimation = Animated.loop(
       Animated.timing(rotateAnim, {
         toValue: 1,
         duration: 3000,
@@ -20,10 +22,30 @@ export function RotatingLoadingImage({ imageUrl, size = 120 }: RotatingLoadingIm
       })
     );
     
-    animation.start();
+    // Pulsing animation
+    const pulseAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.05,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 0.9,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        })
+      ])
+    );
+    
+    rotationAnimation.start();
+    pulseAnimation.start();
     
     return () => {
-      animation.stop();
+      rotationAnimation.stop();
+      pulseAnimation.stop();
     };
   }, []);
 
@@ -34,11 +56,19 @@ export function RotatingLoadingImage({ imageUrl, size = 120 }: RotatingLoadingIm
 
   return (
     <View style={styles.container}>
-      <Animated.View style={[{ transform: [{ rotate }] }]}>
+      <Animated.View style={[
+        { 
+          transform: [
+            { rotate },
+            { scale: scaleAnim }
+          ] 
+        }
+      ]}>
         <Image 
           source={{ uri: imageUrl }}
           style={[styles.image, { width: size, height: size }]}
           contentFit="contain"
+          cachePolicy="memory-disk"
         />
       </Animated.View>
     </View>

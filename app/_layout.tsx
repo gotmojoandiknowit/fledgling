@@ -5,10 +5,11 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { Platform } from "react-native";
 import { ErrorBoundary } from "./error-boundary";
+import { LogoImage } from '@/components/LogoImage';
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: "(tabs)",
+  initialRouteName: "index",
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -46,7 +47,13 @@ export default function RootLayout() {
 function RootLayoutNav() {
   return (
     <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen 
+        name="index" 
+        options={{ 
+          headerTitle: () => <LogoImage />,
+          headerTitleAlign: 'center',
+        }} 
+      />
       <Stack.Screen name="modal" options={{ presentation: "modal" }} />
     </Stack>
   );
