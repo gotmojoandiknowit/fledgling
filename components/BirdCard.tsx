@@ -55,15 +55,9 @@ export const BirdCard = memo(({ bird }: BirdCardProps) => {
     return '#E67C73'; // Low likelihood - red
   };
 
-  // Get likelihood label based on percentage
-  const getLikelihoodLabel = (likelihood: number) => {
-    if (likelihood >= 80) return 'Very likely';
-    if (likelihood >= 50) return 'Likely';
-    if (likelihood >= 30) return 'Possible';
-    return 'Uncommon';
-  };
-
-  const likelihoodColor = getLikelihoodColor(bird.likelihood);
+  // Ensure likelihood is a valid number
+  const likelihood = isNaN(bird.likelihood) ? 0 : bird.likelihood;
+  const likelihoodColor = getLikelihoodColor(likelihood);
 
   return (
     <>
@@ -109,7 +103,7 @@ export const BirdCard = memo(({ bird }: BirdCardProps) => {
                 <View style={[styles.likelihoodBadge, { backgroundColor: likelihoodColor }]}>
                   <Eye size={12} color="#FFFFFF" />
                   <Text style={styles.likelihoodText}>
-                    {bird.likelihood}%
+                    {likelihood}%
                   </Text>
                 </View>
               </View>

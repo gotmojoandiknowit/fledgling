@@ -225,7 +225,7 @@ export function FilterSettings({ onClose, showResultsLimit = false }: FilterSett
             ]}
             onPress={handleReset}
           >
-            <Text style={styles.resetText}>Reset to Defaults</Text>
+            <Text style={styles.resetText}>Reset All Filters</Text>
           </Pressable>
         </View>
       </ScrollView>

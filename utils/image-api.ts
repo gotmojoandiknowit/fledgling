@@ -9,13 +9,8 @@ function isRelevantBirdImage(filename: string, scientificName: string, commonNam
   const isImageFile = imageExtensions.some(ext => filename.endsWith(ext));
   
   // Filter out audio, video, document files, icons, and thumbnails
-  const excludedTerms = ['.ogg', '.mp3', '.wav', '.mp4', '.pdf', '.doc', '.docx', 'icon', 'thumbnail', 'thumb', 'logo', 'gosling'];
+  const excludedTerms = ['.ogg', '.mp3', '.wav', '.mp4', '.pdf', '.doc', '.docx', 'icon', 'thumbnail', 'thumb', 'logo', 'gosling', 'egg'];
   if (excludedTerms.some(term => filename.includes(term)) || !isImageFile) {
-    return false;
-  }
-  
-  // Filter out egg images
-  if (filename.includes('egg')) {
     return false;
   }
   

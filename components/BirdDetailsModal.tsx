@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, View, Text, StyleSheet, Pressable, Platform, ScrollView, Linking, ActivityIndicator, Share } from 'react-native';
 import { Image } from 'expo-image';
-import { X, ExternalLink, MapPin, Calendar, Info, Eye, Volume2, Share2, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { X, ExternalLink, MapPin, Calendar, Info, Eye, Volume2, Share2, ChevronLeft, ChevronRight, Feather, Ruler, AlertTriangle } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { BirdObservation } from '@/types/birds';
 import { fetchBirdInfo } from '@/utils/bird-info';
 import { fetchBirdAudio } from '@/utils/bird-audio';
 import { useBirdsStore } from '@/hooks/use-birds-store';
-import { BirdImageModal } from './BirdImageModal';
 import { AudioPlayer } from './AudioPlayer';
+import { getBirdIdentificationInfo } from '@/data/bird-identification';
 
 interface BirdDetailsModalProps {
   visible: boolean;
@@ -25,8 +25,10 @@ export function BirdDetailsModal({ visible, bird, imageUrl, onClose }: BirdDetai
   const [loadingAudio, setLoadingAudio] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [fullImageModalVisible, setFullImageModalVisible] = useState(false);
   const { birdImages } = useBirdsStore();
+  
+  // Get identification info for this bird
+  const identificationInfo = getBirdIdentificationInfo(bird.speciesCode);
   
   // Get all images for this bird
   const allBirdImages = birdImages[bird.speciesCode] || [];
@@ -211,229 +213,370 @@ ${url}`,
       }
     }
   };
-  
-  const openFullImageModal = () => {
-    if (allBirdImages.length > 0) {
-      setFullImageModalVisible(true);
-      
-      if (Platform.OS !== 'web') {
-        Haptics.selectionAsync();
-      }
-    }
-  };
 
-  const likelihoodColor = getLikelihoodColor(bird.likelihood);
-  const likelihoodLabel = getLikelihoodLabel(bird.likelihood);
+  // Ensure likelihood is a valid number
+  const likelihood = isNaN(bird.likelihood) ? 0 : bird.likelihood;
+  const likelihoodColor = getLikelihoodColor(likelihood);
+  const likelihoodLabel = getLikelihoodLabel(likelihood);
 
   return (
-    <>
-      <Modal
-        visible={visible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={onClose}
-      >
-        <StatusBar style="light" />
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.header}>
-              <Pressable 
-                style={styles.closeButton}
-                onPress={onClose}
-                hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-              >
-                <X size={24} color="#2D3F1F" />
-              </Pressable>
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent={true}
+    >
+      <StatusBar style="light" />
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <View style={styles.header}>
+            <Pressable 
+              style={styles.closeButton}
+              onPress={onClose}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+            >
+              <X size={24} color="#2D3F1F" />
+            </Pressable>
+            
+            <Text style={styles.headerTitle}>Bird Details</Text>
+            
+            <Pressable 
+              style={styles.externalLinkButton}
+              onPress={openEBirdSpeciesPage}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+            >
+              <ExternalLink size={20} color="#2D3F1F" />
+            </Pressable>
+          </View>
+          
+          <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContentContainer}>
+            <View style={styles.imageSection}>
+              <Image
+                source={{ uri: currentImage }}
+                style={styles.birdImage}
+                contentFit="cover"
+                transition={300}
+                cachePolicy="memory-disk"
+              />
               
-              <Text style={styles.headerTitle}>Bird Details</Text>
-              
-              <Pressable 
-                style={styles.externalLinkButton}
-                onPress={openEBirdSpeciesPage}
-                hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-              >
-                <ExternalLink size={20} color="#2D3F1F" />
-              </Pressable>
+              {allBirdImages.length > 1 && (
+                <View style={styles.imageNavigation}>
+                  <Pressable 
+                    style={[
+                      styles.imageNavButton,
+                      currentImageIndex === 0 && styles.imageNavButtonDisabled
+                    ]}
+                    onPress={goToPreviousImage}
+                    disabled={currentImageIndex === 0}
+                  >
+                    <ChevronLeft size={20} color={currentImageIndex === 0 ? "#AAAAAA" : "#FFFFFF"} />
+                  </Pressable>
+                  
+                  <View style={styles.imageCountBadge}>
+                    <Text style={styles.imageCountText}>{currentImageIndex + 1} / {allBirdImages.length}</Text>
+                  </View>
+                  
+                  <Pressable 
+                    style={[
+                      styles.imageNavButton,
+                      currentImageIndex === allBirdImages.length - 1 && styles.imageNavButtonDisabled
+                    ]}
+                    onPress={goToNextImage}
+                    disabled={currentImageIndex === allBirdImages.length - 1}
+                  >
+                    <ChevronRight size={20} color={currentImageIndex === allBirdImages.length - 1 ? "#AAAAAA" : "#FFFFFF"} />
+                  </Pressable>
+                </View>
+              )}
             </View>
             
-            <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContentContainer}>
-              <Pressable style={styles.imageSection} onPress={openFullImageModal}>
-                <Image
-                  source={{ uri: currentImage }}
-                  style={styles.birdImage}
-                  contentFit="cover"
-                  transition={300}
-                  cachePolicy="memory-disk"
-                />
-                
-                {allBirdImages.length > 1 && (
-                  <View style={styles.imageNavigation}>
-                    <Pressable 
-                      style={[
-                        styles.imageNavButton,
-                        currentImageIndex === 0 && styles.imageNavButtonDisabled
-                      ]}
-                      onPress={goToPreviousImage}
-                      disabled={currentImageIndex === 0}
-                    >
-                      <ChevronLeft size={20} color={currentImageIndex === 0 ? "#AAAAAA" : "#FFFFFF"} />
-                    </Pressable>
-                    
-                    <View style={styles.imageCountBadge}>
-                      <Text style={styles.imageCountText}>{currentImageIndex + 1} / {allBirdImages.length}</Text>
-                    </View>
-                    
-                    <Pressable 
-                      style={[
-                        styles.imageNavButton,
-                        currentImageIndex === allBirdImages.length - 1 && styles.imageNavButtonDisabled
-                      ]}
-                      onPress={goToNextImage}
-                      disabled={currentImageIndex === allBirdImages.length - 1}
-                    >
-                      <ChevronRight size={20} color={currentImageIndex === allBirdImages.length - 1 ? "#AAAAAA" : "#FFFFFF"} />
-                    </Pressable>
-                  </View>
-                )}
-              </Pressable>
+            <View style={styles.infoSection}>
+              <Text style={styles.commonName}>{bird.comName}</Text>
+              <Text style={styles.scientificName}>{bird.sciName}</Text>
               
-              <View style={styles.infoSection}>
-                <Text style={styles.commonName}>{bird.comName}</Text>
-                <Text style={styles.scientificName}>{bird.sciName}</Text>
+              <View style={styles.statsRow}>
+                <View style={styles.statItem}>
+                  <Calendar size={16} color="#2D3F1F" />
+                  <Text style={styles.statText}>
+                    {new Date(bird.obsDt).toLocaleDateString()}
+                  </Text>
+                </View>
                 
-                <View style={styles.statsRow}>
-                  <View style={styles.statItem}>
-                    <Calendar size={16} color="#2D3F1F" />
-                    <Text style={styles.statText}>
-                      {new Date(bird.obsDt).toLocaleDateString()}
-                    </Text>
+                <View style={styles.likelihoodContainer}>
+                  <View style={[styles.likelihoodBadge, { backgroundColor: likelihoodColor }]}>
+                    <Eye size={14} color="#FFFFFF" />
+                    <View style={styles.likelihoodTextContainer}>
+                      <Text style={styles.likelihoodLabel}>{likelihoodLabel}</Text>
+                      <Text style={styles.likelihoodPercentage}>{likelihood}%</Text>
+                    </View>
                   </View>
+                </View>
+              </View>
+              
+              {/* Identification Guide Section */}
+              {identificationInfo && (
+                <View style={styles.identificationSection}>
+                  <Text style={styles.sectionTitle}>Identification Guide</Text>
                   
-                  <View style={styles.likelihoodContainer}>
-                    <View style={[styles.likelihoodBadge, { backgroundColor: likelihoodColor }]}>
-                      <Eye size={14} color="#FFFFFF" />
-                      <View style={styles.likelihoodTextContainer}>
-                        <Text style={styles.likelihoodLabel}>{likelihoodLabel}</Text>
-                        <Text style={styles.likelihoodPercentage}>{bird.likelihood}%</Text>
+                  {/* Field Marks */}
+                  {identificationInfo.fieldMarks && (
+                    <View style={styles.fieldMarksContainer}>
+                      <View style={styles.fieldMarkHeader}>
+                        <Feather size={18} color="#2D3F1F" />
+                        <Text style={styles.fieldMarkTitle}>Key Field Marks</Text>
+                      </View>
+                      
+                      <View style={styles.fieldMarksList}>
+                        {identificationInfo.fieldMarks.bill && (
+                          <View style={styles.fieldMarkItem}>
+                            <Text style={styles.fieldMarkLabel}>Bill:</Text>
+                            <Text style={styles.fieldMarkValue}>{identificationInfo.fieldMarks.bill}</Text>
+                          </View>
+                        )}
+                        
+                        {identificationInfo.fieldMarks.color && (
+                          <View style={styles.fieldMarkItem}>
+                            <Text style={styles.fieldMarkLabel}>Colors:</Text>
+                            <Text style={styles.fieldMarkValue}>
+                              {identificationInfo.fieldMarks.color.join(', ')}
+                            </Text>
+                          </View>
+                        )}
+                        
+                        {identificationInfo.fieldMarks.wings && (
+                          <View style={styles.fieldMarkItem}>
+                            <Text style={styles.fieldMarkLabel}>Wings:</Text>
+                            <Text style={styles.fieldMarkValue}>{identificationInfo.fieldMarks.wings}</Text>
+                          </View>
+                        )}
+                        
+                        {identificationInfo.fieldMarks.tail && (
+                          <View style={styles.fieldMarkItem}>
+                            <Text style={styles.fieldMarkLabel}>Tail:</Text>
+                            <Text style={styles.fieldMarkValue}>{identificationInfo.fieldMarks.tail}</Text>
+                          </View>
+                        )}
+                        
+                        {identificationInfo.fieldMarks.behavior && (
+                          <View style={styles.fieldMarkItem}>
+                            <Text style={styles.fieldMarkLabel}>Behavior:</Text>
+                            <Text style={styles.fieldMarkValue}>{identificationInfo.fieldMarks.behavior}</Text>
+                          </View>
+                        )}
                       </View>
                     </View>
-                  </View>
-                </View>
-                
-                <View style={styles.actionButtonsRow}>
-                  <Pressable style={styles.actionButton} onPress={openMapLocation}>
-                    <MapPin size={16} color="#2D3F1F" />
-                    <Text style={styles.actionButtonText}>View on Map</Text>
-                  </Pressable>
+                  )}
                   
-                  <Pressable style={styles.actionButton} onPress={shareBird}>
-                    <Share2 size={16} color="#2D3F1F" />
-                    <Text style={styles.actionButtonText}>Share</Text>
-                  </Pressable>
-                </View>
-                
-                {/* Bird Calls Section */}
-                <View style={styles.callsSection}>
-                  <Text style={styles.sectionTitle}>Bird Calls</Text>
-                  
-                  {loadingAudio ? (
-                    <View style={styles.loadingContainer}>
-                      <ActivityIndicator size="small" color="#2D3F1F" />
-                      <Text style={styles.loadingText}>Loading bird calls...</Text>
+                  {/* Size Comparison */}
+                  {identificationInfo.sizeComparison && (
+                    <View style={styles.sizeComparisonContainer}>
+                      <View style={styles.fieldMarkHeader}>
+                        <Ruler size={18} color="#2D3F1F" />
+                        <Text style={styles.fieldMarkTitle}>Size</Text>
+                      </View>
+                      
+                      <View style={styles.sizeComparisonContent}>
+                        {identificationInfo.sizeComparison.length && (
+                          <Text style={styles.sizeText}>
+                            Length: {identificationInfo.sizeComparison.length}
+                          </Text>
+                        )}
+                        
+                        {identificationInfo.sizeComparison.wingspan && (
+                          <Text style={styles.sizeText}>
+                            Wingspan: {identificationInfo.sizeComparison.wingspan}
+                          </Text>
+                        )}
+                        
+                        {identificationInfo.sizeComparison.comparedTo && (
+                          <Text style={styles.sizeComparedTo}>
+                            {identificationInfo.sizeComparison.comparedTo}
+                          </Text>
+                        )}
+                      </View>
                     </View>
-                  ) : birdAudio.length > 0 ? (
-                    <View style={styles.audioList}>
-                      {birdAudio.map((audio, index) => (
-                        <AudioPlayer 
-                          key={index}
-                          audioUrl={audio.url}
-                          recordist={audio.recordist}
-                          type={audio.type}
-                          country={audio.country}
-                        />
+                  )}
+                  
+                  {/* Similar Species */}
+                  {identificationInfo.similarSpecies && identificationInfo.similarSpecies.length > 0 && (
+                    <View style={styles.similarSpeciesContainer}>
+                      <View style={styles.fieldMarkHeader}>
+                        <AlertTriangle size={18} color="#2D3F1F" />
+                        <Text style={styles.fieldMarkTitle}>Similar Species</Text>
+                      </View>
+                      
+                      {identificationInfo.similarSpecies.map((similar, index) => (
+                        <View key={index} style={styles.similarSpeciesItem}>
+                          <Text style={styles.similarSpeciesName}>{similar.comName}</Text>
+                          <View style={styles.differencesList}>
+                            {similar.differences.map((diff, i) => (
+                              <Text key={i} style={styles.differenceItem}>• {diff}</Text>
+                            ))}
+                          </View>
+                        </View>
                       ))}
                     </View>
-                  ) : (
-                    <View style={styles.noAudioContainer}>
-                      <Volume2 size={20} color="#666" />
-                      <Text style={styles.noAudioText}>No bird calls available</Text>
+                  )}
+                  
+                  {/* Sexual Dimorphism */}
+                  {identificationInfo.sexualDimorphism && identificationInfo.sexualDimorphism.hasDimorphism && (
+                    <View style={styles.dimorphismContainer}>
+                      <View style={styles.fieldMarkHeader}>
+                        <Text style={styles.fieldMarkTitle}>Male vs Female</Text>
+                      </View>
+                      
+                      <View style={styles.dimorphismContent}>
+                        {identificationInfo.sexualDimorphism.differences && (
+                          <View style={styles.differencesList}>
+                            {identificationInfo.sexualDimorphism.differences.map((diff, i) => (
+                              <Text key={i} style={styles.differenceItem}>• {diff}</Text>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  )}
+                  
+                  {/* Seasonal Plumage */}
+                  {identificationInfo.seasonalPlumage && identificationInfo.seasonalPlumage.seasonal && (
+                    <View style={styles.seasonalPlumageContainer}>
+                      <View style={styles.fieldMarkHeader}>
+                        <Text style={styles.fieldMarkTitle}>Seasonal Appearance</Text>
+                      </View>
+                      
+                      <View style={styles.seasonalPlumageContent}>
+                        {identificationInfo.seasonalPlumage.breeding && (
+                          <View style={styles.seasonItem}>
+                            <Text style={styles.seasonLabel}>Breeding:</Text>
+                            <Text style={styles.seasonValue}>{identificationInfo.seasonalPlumage.breeding}</Text>
+                          </View>
+                        )}
+                        
+                        {identificationInfo.seasonalPlumage.nonBreeding && (
+                          <View style={styles.seasonItem}>
+                            <Text style={styles.seasonLabel}>Non-breeding:</Text>
+                            <Text style={styles.seasonValue}>{identificationInfo.seasonalPlumage.nonBreeding}</Text>
+                          </View>
+                        )}
+                        
+                        {identificationInfo.seasonalPlumage.juvenile && (
+                          <View style={styles.seasonItem}>
+                            <Text style={styles.seasonLabel}>Juvenile:</Text>
+                            <Text style={styles.seasonValue}>{identificationInfo.seasonalPlumage.juvenile}</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                   )}
                 </View>
+              )}
+              
+              <View style={styles.actionButtonsRow}>
+                <Pressable style={styles.actionButton} onPress={openMapLocation}>
+                  <MapPin size={16} color="#2D3F1F" />
+                  <Text style={styles.actionButtonText}>View on Map</Text>
+                </Pressable>
                 
-                {loading ? (
+                <Pressable style={styles.actionButton} onPress={shareBird}>
+                  <Share2 size={16} color="#2D3F1F" />
+                  <Text style={styles.actionButtonText}>Share</Text>
+                </Pressable>
+              </View>
+              
+              {/* Bird Calls Section */}
+              <View style={styles.callsSection}>
+                <Text style={styles.sectionTitle}>Bird Calls</Text>
+                
+                {loadingAudio ? (
                   <View style={styles.loadingContainer}>
                     <ActivityIndicator size="small" color="#2D3F1F" />
-                    <Text style={styles.loadingText}>Loading additional information...</Text>
+                    <Text style={styles.loadingText}>Loading bird calls...</Text>
                   </View>
-                ) : error ? (
-                  <Text style={styles.errorText}>{error}</Text>
-                ) : birdInfo ? (
-                  <View style={styles.additionalInfo}>
-                    <Text style={styles.sectionTitle}>About this bird</Text>
-                    
-                    {birdInfo.description && (
-                      <Text style={styles.descriptionText}>{birdInfo.description}</Text>
-                    )}
-                    
-                    {birdInfo.habitat && (
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Habitat:</Text>
-                        <Text style={styles.infoValue}>{birdInfo.habitat}</Text>
-                      </View>
-                    )}
-                    
-                    {birdInfo.diet && (
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Diet:</Text>
-                        <Text style={styles.infoValue}>{birdInfo.diet}</Text>
-                      </View>
-                    )}
-                    
-                    {birdInfo.behavior && (
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Behavior:</Text>
-                        <Text style={styles.infoValue}>{birdInfo.behavior}</Text>
-                      </View>
-                    )}
-                    
-                    <View style={styles.externalLinksContainer}>
-                      {birdInfo.wikipediaUrl && (
-                        <Pressable style={styles.externalLinkItem} onPress={openWikipediaPage}>
-                          <Info size={16} color="#2D3F1F" />
-                          <Text style={styles.externalLinkText}>Read more on Wikipedia</Text>
-                        </Pressable>
-                      )}
-                      
-                      {birdInfo.audioUrl && (
-                        <Pressable style={styles.externalLinkItem} onPress={openAudioPage}>
-                          <Volume2 size={16} color="#2D3F1F" />
-                          <Text style={styles.externalLinkText}>More bird calls on Xeno-Canto</Text>
-                        </Pressable>
-                      )}
-                    </View>
+                ) : birdAudio.length > 0 ? (
+                  <View style={styles.audioList}>
+                    {birdAudio.map((audio, index) => (
+                      <AudioPlayer 
+                        key={index}
+                        audioUrl={audio.url}
+                        recordist={audio.recordist}
+                        type={audio.type}
+                        country={audio.country}
+                      />
+                    ))}
                   </View>
                 ) : (
-                  <View style={styles.noInfoContainer}>
-                    <Text style={styles.noInfoText}>
-                      Visit eBird for more information about this species.
-                    </Text>
+                  <View style={styles.noAudioContainer}>
+                    <Volume2 size={20} color="#666" />
+                    <Text style={styles.noAudioText}>No bird calls available</Text>
                   </View>
                 )}
               </View>
-            </ScrollView>
-          </View>
+              
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#2D3F1F" />
+                  <Text style={styles.loadingText}>Loading additional information...</Text>
+                </View>
+              ) : error ? (
+                <Text style={styles.errorText}>{error}</Text>
+              ) : birdInfo ? (
+                <View style={styles.additionalInfo}>
+                  <Text style={styles.sectionTitle}>About this bird</Text>
+                  
+                  {birdInfo.description && (
+                    <Text style={styles.descriptionText}>{birdInfo.description}</Text>
+                  )}
+                  
+                  {birdInfo.habitat && (
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Habitat:</Text>
+                      <Text style={styles.infoValue}>{birdInfo.habitat}</Text>
+                    </View>
+                  )}
+                  
+                  {birdInfo.diet && (
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Diet:</Text>
+                      <Text style={styles.infoValue}>{birdInfo.diet}</Text>
+                    </View>
+                  )}
+                  
+                  {birdInfo.behavior && (
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Behavior:</Text>
+                      <Text style={styles.infoValue}>{birdInfo.behavior}</Text>
+                    </View>
+                  )}
+                  
+                  <View style={styles.externalLinksContainer}>
+                    {birdInfo.wikipediaUrl && (
+                      <Pressable style={styles.externalLinkItem} onPress={openWikipediaPage}>
+                        <Info size={16} color="#2D3F1F" />
+                        <Text style={styles.externalLinkText}>Read more on Wikipedia</Text>
+                      </Pressable>
+                    )}
+                    
+                    {birdInfo.audioUrl && (
+                      <Pressable style={styles.externalLinkItem} onPress={openAudioPage}>
+                        <Volume2 size={16} color="#2D3F1F" />
+                        <Text style={styles.externalLinkText}>More bird calls on Xeno-Canto</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.noInfoContainer}>
+                  <Text style={styles.noInfoText}>
+                    Visit eBird for more information about this species.
+                  </Text>
+                </View>
+              )}
+            </View>
+          </ScrollView>
         </View>
-      </Modal>
-      
-      {allBirdImages.length > 0 && (
-        <BirdImageModal
-          visible={fullImageModalVisible}
-          imageUrls={allBirdImages}
-          onClose={() => setFullImageModalVisible(false)}
-        />
-      )}
-    </>
+      </View>
+    </Modal>
   );
 }
 
@@ -456,6 +599,7 @@ const styles = StyleSheet.create({
         width: '100%',
         borderRadius: 20,
         marginBottom: 20,
+        maxHeight: '90%',
       }
     }),
   },
@@ -577,6 +721,107 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: 'rgba(255, 255, 255, 0.9)',
   },
+  // Identification Guide Styles
+  identificationSection: {
+    marginTop: 10,
+    marginBottom: 20,
+    backgroundColor: '#F5F6F3',
+    borderRadius: 12,
+    padding: 16,
+  },
+  fieldMarksContainer: {
+    marginBottom: 16,
+  },
+  fieldMarkHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  fieldMarkTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3F1F',
+  },
+  fieldMarksList: {
+    gap: 6,
+  },
+  fieldMarkItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  fieldMarkLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3F1F',
+    width: 70,
+  },
+  fieldMarkValue: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+  },
+  sizeComparisonContainer: {
+    marginBottom: 16,
+  },
+  sizeComparisonContent: {
+    gap: 4,
+  },
+  sizeText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  sizeComparedTo: {
+    fontSize: 14,
+    color: '#333',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  similarSpeciesContainer: {
+    marginBottom: 16,
+  },
+  similarSpeciesItem: {
+    marginTop: 8,
+  },
+  similarSpeciesName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3F1F',
+    marginBottom: 4,
+  },
+  differencesList: {
+    paddingLeft: 4,
+  },
+  differenceItem: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 2,
+  },
+  dimorphismContainer: {
+    marginBottom: 16,
+  },
+  dimorphismContent: {
+    marginTop: 4,
+  },
+  seasonalPlumageContainer: {
+    marginBottom: 16,
+  },
+  seasonalPlumageContent: {
+    gap: 8,
+  },
+  seasonItem: {
+    marginBottom: 4,
+  },
+  seasonLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3F1F',
+    marginBottom: 2,
+  },
+  seasonValue: {
+    fontSize: 14,
+    color: '#333',
+  },
   actionButtonsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -601,6 +846,12 @@ const styles = StyleSheet.create({
   callsSection: {
     marginTop: 10,
     marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2D3F1F',
+    marginBottom: 12,
   },
   audioList: {
     gap: 8,
@@ -636,12 +887,6 @@ const styles = StyleSheet.create({
   },
   additionalInfo: {
     marginTop: 10,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#2D3F1F',
-    marginBottom: 12,
   },
   descriptionText: {
     fontSize: 14,

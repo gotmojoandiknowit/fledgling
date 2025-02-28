@@ -21,12 +21,20 @@ export async function fetchBirdAudio(scientificName: string): Promise<string[]> 
     
     const data = await response.json();
     
+    // Check if we have valid recordings data
+    if (!data.recordings || !Array.isArray(data.recordings)) {
+      console.warn('Invalid recordings data format:', data);
+      return [];
+    }
+    
     // Extract audio URLs from the response
     const audioUrls = data.recordings
       .filter((recording: any) => 
-        // Filter for high-quality recordings
-        recording.q.toLowerCase() === 'a' || 
-        recording.q.toLowerCase() === 'b'
+        // Filter for high-quality recordings and ensure URL exists
+        recording && 
+        recording.file && 
+        typeof recording.file === 'string' &&
+        (recording.q?.toLowerCase() === 'a' || recording.q?.toLowerCase() === 'b')
       )
       .slice(0, 3) // Limit to 3 recordings
       .map((recording: any) => ({

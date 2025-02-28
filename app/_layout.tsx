@@ -46,13 +46,24 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   return (
-    <Stack>
+    <Stack screenOptions={{ headerBackVisible: false }}>
       <Stack.Screen 
         name="index" 
         options={{ 
           headerTitle: () => <LogoImage />,
           headerTitleAlign: 'center',
         }} 
+      />
+      <Stack.Screen 
+        name="hotspots" 
+        options={{
+          headerTitle: "Birding Hotspots",
+          headerTitleStyle: {
+            color: '#2D3F1F',
+            fontWeight: '600',
+          },
+          headerBackVisible: false,
+        }}
       />
       <Stack.Screen name="modal" options={{ presentation: "modal" }} />
     </Stack>

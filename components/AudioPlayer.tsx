@@ -35,14 +35,18 @@ export function AudioPlayer({ audioUrl, recordist, type, country }: AudioPlayerP
           
           audioElement.addEventListener('loadedmetadata', () => {
             if (isMounted) {
-              setDuration(audioElement.duration);
+              // Ensure duration is a valid number
+              const audioDuration = isNaN(audioElement.duration) ? 0 : audioElement.duration;
+              setDuration(audioDuration);
               setIsLoading(false);
             }
           });
           
           audioElement.addEventListener('timeupdate', () => {
             if (isMounted) {
-              setPosition(audioElement.currentTime);
+              // Ensure currentTime is a valid number
+              const currentTime = isNaN(audioElement.currentTime) ? 0 : audioElement.currentTime;
+              setPosition(currentTime);
             }
           });
           
@@ -144,6 +148,11 @@ export function AudioPlayer({ audioUrl, recordist, type, country }: AudioPlayerP
   
   // Format time as mm:ss
   const formatTime = (seconds: number) => {
+    // Ensure seconds is a valid number
+    if (isNaN(seconds) || !isFinite(seconds)) {
+      seconds = 0;
+    }
+    
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
@@ -151,6 +160,9 @@ export function AudioPlayer({ audioUrl, recordist, type, country }: AudioPlayerP
   
   // Calculate progress percentage
   const progress = duration > 0 ? (position / duration) * 100 : 0;
+  
+  // Ensure progress is a valid percentage (0-100)
+  const validProgress = isNaN(progress) || !isFinite(progress) ? 0 : Math.min(100, Math.max(0, progress));
   
   if (error) {
     return (
@@ -192,7 +204,7 @@ export function AudioPlayer({ audioUrl, recordist, type, country }: AudioPlayerP
               <View 
                 style={[
                   styles.progressBar, 
-                  { width: `${progress}%` }
+                  { width: `${validProgress}%` }
                 ]} 
               />
             </View>

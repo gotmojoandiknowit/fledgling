@@ -5,6 +5,10 @@ interface ScoredBird extends BirdObservation {
 }
 
 export function calculateBirdLikelihood(birds: BirdObservation[]): ScoredBird[] {
+  if (!birds || birds.length === 0) {
+    return [];
+  }
+  
   const now = new Date();
   
   // Group birds by species
@@ -29,6 +33,10 @@ export function calculateBirdLikelihood(birds: BirdObservation[]): ScoredBird[] 
     
     maxVolume = Math.max(maxVolume, totalVolume);
   });
+
+  // Ensure we don't divide by zero
+  maxSightings = maxSightings || 1;
+  maxVolume = maxVolume || 1;
 
   // Score each species
   const scoredBirds = Array.from(speciesMap.entries()).map(([_, observations]) => {
@@ -57,7 +65,8 @@ export function calculateBirdLikelihood(birds: BirdObservation[]): ScoredBird[] 
       weightSum += weight;
     });
     
-    const avgRecency = weightedRecencySum / weightSum;
+    // Prevent division by zero
+    const avgRecency = weightSum > 0 ? weightedRecencySum / weightSum : 0;
     const recencyScore = avgRecency * 30;
     
     // Calculate volume score (0-20 points)
@@ -85,7 +94,14 @@ export function calculateBirdLikelihood(birds: BirdObservation[]): ScoredBird[] 
     }
     
     // Combine scores and round to nearest integer
-    const likelihood = Math.round(frequencyScore + recencyScore + volumeScore + consistencyScore);
+    // Make sure we don't have any NaN or Infinity values
+    const totalScore = 
+      (isNaN(frequencyScore) ? 0 : frequencyScore) + 
+      (isNaN(recencyScore) ? 0 : recencyScore) + 
+      (isNaN(volumeScore) ? 0 : volumeScore) + 
+      (isNaN(consistencyScore) ? 0 : consistencyScore);
+    
+    const likelihood = Math.round(isFinite(totalScore) ? totalScore : 0);
     
     // Cap at 99% - nothing is 100% certain in birding!
     const cappedLikelihood = Math.min(99, likelihood);

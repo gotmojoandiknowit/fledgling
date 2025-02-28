@@ -10,15 +10,18 @@ import * as Location from 'expo-location';
 import { BirdCard } from '@/components/BirdCard';
 import { RotatingLoadingImage } from '@/components/RotatingLoadingImage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Search, MapPin, Filter } from 'lucide-react-native';
+import { Search, MapPin, Filter, Map } from 'lucide-react-native';
 import { FilterSettings } from '@/components/FilterSettings';
 import { RadiusSettings } from '@/components/RadiusSettings';
+import { useRouter } from 'expo-router';
 
 const { width, height } = Dimensions.get('window');
 
 export default function BirdsScreen() {
+  const router = useRouter();
   const { 
     birds, 
+    filteredBirds,
     isLoading, 
     error, 
     location, 
@@ -70,6 +73,8 @@ export default function BirdsScreen() {
       if (status !== 'granted') {
         setError('Permission to access location was denied');
         setRefreshing(false);
+        setIsLoading(false);
+        setIsFullyLoaded(true);
         return;
       }
 
@@ -80,7 +85,10 @@ export default function BirdsScreen() {
       };
       setLocation(currentLocation);
 
-      const birdsData = await fetchNearbyBirds(currentLocation, radius);
+      // Pass the resultsLimit to the API call
+      // If resultsLimit is null (All), don't pass a limit
+      const apiLimit = resultsLimit === null ? null : resultsLimit;
+      const birdsData = await fetchNearbyBirds(currentLocation, radius, apiLimit);
       const scoredBirds = calculateBirdLikelihood(birdsData);
       setBirds(scoredBirds);
       
@@ -144,7 +152,7 @@ export default function BirdsScreen() {
       setIsLoading(false);
       setRefreshing(false);
     }
-  }, [searchRadius, hasAutoExpanded, birdImages]);
+  }, [searchRadius, hasAutoExpanded, birdImages, resultsLimit]);
 
   useEffect(() => {
     loadBirds();
@@ -157,14 +165,17 @@ export default function BirdsScreen() {
 
   // Apply sorting and limiting to the birds list
   const displayedBirds = useMemo(() => {
-    if (!birds.length) return [];
+    if (!filteredBirds.length) return [];
     
     // First sort the birds
-    const sorted = [...birds].sort((a, b) => {
+    const sorted = [...filteredBirds].sort((a, b) => {
       let comparison = 0;
       
       if (sortBy === 'likelihood') {
-        comparison = a.likelihood - b.likelihood;
+        // Ensure we're comparing valid numbers
+        const aLikelihood = isNaN(a.likelihood) ? 0 : a.likelihood;
+        const bLikelihood = isNaN(b.likelihood) ? 0 : b.likelihood;
+        comparison = aLikelihood - bLikelihood;
       } else if (sortBy === 'name') {
         comparison = a.comName.localeCompare(b.comName);
       } else if (sortBy === 'date') {
@@ -180,7 +191,7 @@ export default function BirdsScreen() {
     }
     
     return sorted;
-  }, [birds, sortBy, sortDirection, resultsLimit]);
+  }, [filteredBirds, sortBy, sortDirection, resultsLimit]);
 
   // Modal functions
   const openModal = (type: 'radius' | 'filter') => {
@@ -235,6 +246,28 @@ export default function BirdsScreen() {
     loadBirds(searchRadius, false);
   };
 
+  // Navigate to hotspots page
+  const navigateToHotspots = () => {
+    // Use push to navigate to the hotspots page
+    router.push('/hotspots');
+    
+    if (Platform.OS !== 'web') {
+      Haptics.selectionAsync();
+    }
+  };
+
+  // Open app settings to allow location permissions
+  const openLocationSettings = () => {
+    if (Platform.OS === 'ios') {
+      Linking.openURL('app-settings:');
+    } else if (Platform.OS === 'android') {
+      Linking.openSettings();
+    } else {
+      // For web, just retry the location request
+      loadBirds();
+    }
+  };
+
   const renderFooter = () => {
     if (location && !isLoading && !error && displayedBirds.length > 0) {
       return (
@@ -252,10 +285,10 @@ export default function BirdsScreen() {
                   ]}
                   onPress={() => openModal('radius')}
                 >
-                  <View style={styles.locationContainer}>
-                    <MapPin size={18} color="#FFFFFF" />
-                    <Text style={styles.locationText}>
-                      {searchRadius} mile{searchRadius !== 1 ? 's' : ''} radius
+                  <View style={styles.footerButtonContent}>
+                    <MapPin size={20} color="#FFFFFF" />
+                    <Text style={styles.footerButtonText}>
+                      {searchRadius} mi
                     </Text>
                   </View>
                 </Pressable>
@@ -267,10 +300,25 @@ export default function BirdsScreen() {
                   ]}
                   onPress={() => openModal('filter')}
                 >
-                  <View style={styles.resultsContainer}>
-                    <Filter size={18} color="#FFFFFF" />
-                    <Text style={styles.resultsText}>
-                      {displayedBirds.length} bird{displayedBirds.length !== 1 ? 's' : ''}
+                  <View style={styles.footerButtonContent}>
+                    <Filter size={20} color="#FFFFFF" />
+                    <Text style={styles.footerButtonText}>
+                      Filter
+                    </Text>
+                  </View>
+                </Pressable>
+                
+                <Pressable 
+                  style={({ pressed }) => [
+                    styles.footerButton,
+                    pressed && styles.footerButtonPressed
+                  ]}
+                  onPress={navigateToHotspots}
+                >
+                  <View style={styles.footerButtonContent}>
+                    <Map size={20} color="#FFFFFF" />
+                    <Text style={styles.footerButtonText}>
+                      Hotspots
                     </Text>
                   </View>
                 </Pressable>
@@ -284,16 +332,48 @@ export default function BirdsScreen() {
   };
 
   if (error) {
+    const isLocationError = error.includes('location') || error.includes('Location');
+    
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorTitle}>Something went wrong</Text>
           <Text style={styles.errorText}>{error}</Text>
-          <View style={styles.refreshButton}>
-            <Text style={styles.refreshButtonText} onPress={() => loadBirds()}>
-              Try Again
-            </Text>
-          </View>
+          
+          {isLocationError ? (
+            <>
+              <Pressable 
+                style={styles.refreshButton}
+                onPress={() => loadBirds()}
+              >
+                <Text style={styles.refreshButtonText}>
+                  Try Again
+                </Text>
+              </Pressable>
+              
+              <Pressable 
+                style={[styles.refreshButton, styles.settingsButton]}
+                onPress={openLocationSettings}
+              >
+                <Text style={styles.refreshButtonText}>
+                  Open Settings
+                </Text>
+              </Pressable>
+              
+              <Text style={styles.permissionHelpText}>
+                Fledgling needs location access to find birds near you
+              </Text>
+            </>
+          ) : (
+            <Pressable 
+              style={styles.refreshButton}
+              onPress={() => loadBirds()}
+            >
+              <Text style={styles.refreshButtonText}>
+                Try Again
+              </Text>
+            </Pressable>
+          )}
         </View>
       </View>
     );
@@ -303,6 +383,15 @@ export default function BirdsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Top info bar - matching the style in hotspots page */}
+      {!isStillLoading && displayedBirds.length > 0 && (
+        <View style={styles.topInfoBar}>
+          <Text style={styles.topInfoText}>
+            Top {displayedBirds.length} Birds within {searchRadius} miles
+          </Text>
+        </View>
+      )}
+      
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
@@ -352,7 +441,7 @@ export default function BirdsScreen() {
       {/* Footer Bar */}
       {renderFooter()}
 
-      {/* Filter Modals */}
+      {/* Modals */}
       <Modal
         visible={modalVisible}
         transparent={true}
@@ -402,6 +491,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F6F3',
   },
+  topInfoBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F5F6F3',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E1E2DE',
+  },
+  topInfoText: {
+    fontSize: 14,
+    color: '#2D3F1F',
+    fontWeight: '500',
+  },
   scrollView: {
     flex: 1,
   },
@@ -449,10 +553,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 16,
   },
+  settingsButton: {
+    backgroundColor: '#4A6741',
+    marginTop: 12,
+  },
   refreshButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '500',
+  },
+  permissionHelpText: {
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 16,
+    fontSize: 14,
   },
   emptyContainer: {
     flex: 1,
@@ -479,6 +593,7 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 16,
     color: '#666',
+    marginBottom: 20,
   },
   listContainer: {
     paddingTop: 8,
@@ -510,10 +625,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
   },
   footerButton: {
-    padding: 10,
+    padding: 8,
     borderRadius: 8,
     flex: 1,
     alignItems: 'center',
@@ -521,24 +636,13 @@ const styles = StyleSheet.create({
   footerButtonPressed: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
-  locationContainer: {
-    flexDirection: 'row',
+  footerButtonContent: {
     alignItems: 'center',
-    gap: 8,
+    gap: 4,
   },
-  locationText: {
+  footerButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  resultsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  resultsText: {
-    color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '500',
   },
   // Modal styles
