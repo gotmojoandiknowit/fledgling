@@ -131,8 +131,8 @@ export default function HotspotsScreen() {
       }
       
       if (sortOption.value === 'distance') {
-        const aDist = calculateDistance(location.latitude, location.longitude, a.lat, a.lng);
-        const bDist = calculateDistance(location.latitude, location.longitude, b.lat, b.lng);
+        const aDist = calculateDistance(location.latitude, location.longitude, a.latitude, a.longitude);
+        const bDist = calculateDistance(location.latitude, location.longitude, b.latitude, b.longitude);
         
         const aValue = aDist ? parseFloat(aDist) : 9999;
         const bValue = bDist ? parseFloat(bDist) : 9999;
@@ -389,8 +389,8 @@ export default function HotspotsScreen() {
                     calculateDistance(
                       location.latitude, 
                       location.longitude, 
-                      hotspot.lat, 
-                      hotspot.lng
+                      hotspot.latitude, 
+                      hotspot.longitude
                     ) : null;
                   
                   const quality = getHotspotQuality(hotspot.numSpeciesAllTime);
@@ -578,8 +578,8 @@ export default function HotspotsScreen() {
                       <Pressable 
                         style={styles.detailsActionButton}
                         onPress={() => openInMaps(
-                          selectedHotspot.lat, 
-                          selectedHotspot.lng, 
+                          selectedHotspot.latitude, 
+                          selectedHotspot.longitude, 
                           selectedHotspot.locName
                         )}
                       >

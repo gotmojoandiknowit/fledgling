@@ -57,11 +57,8 @@ function RootLayoutNav() {
       <Stack.Screen 
         name="hotspots" 
         options={{
-          headerTitle: "Birding Hotspots",
-          headerTitleStyle: {
-            color: '#2D3F1F',
-            fontWeight: '600',
-          },
+          headerTitle: () => <LogoImage />,
+          headerTitleAlign: 'center',
           headerBackVisible: false,
         }}
       />

@@ -1,3 +1,2 @@
 # This is a placeholder. You'll need to create an app icon.
-# The app icon should be a 1024x1024px image.
-# You can use the bird logo from your existing assets.
+# For Netlify deployment, we'll use the existing logo.
