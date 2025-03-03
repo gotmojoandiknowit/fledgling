@@ -1,12 +1,11 @@
 {
-  "name": "fledgling-app",
+  "name": "expo-app",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
     "start": "expo start --tunnel",
     "start-web": "expo start --web --tunnel",
-    "start-web-dev": "DEBUG=expo* expo start --web --tunnel",
-    "build": "npx expo export:web"
+    "start-web-dev": "DEBUG=expo* expo start --web --tunnel"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",

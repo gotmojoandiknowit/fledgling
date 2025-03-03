@@ -1,2 +1,3 @@
 # This is a placeholder. You'll need to create a splash screen image.
-# For Netlify deployment, we'll use the existing logo.
+# The splash screen should be a 1242x2436px image.
+# You can use the bird logo from your existing assets.

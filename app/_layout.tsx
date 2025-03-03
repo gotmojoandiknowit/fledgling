@@ -54,6 +54,17 @@ function RootLayoutNav() {
           headerTitleAlign: 'center',
         }} 
       />
+      <Stack.Screen 
+        name="hotspots" 
+        options={{
+          headerTitle: "Birding Hotspots",
+          headerTitleStyle: {
+            color: '#2D3F1F',
+            fontWeight: '600',
+          },
+          headerBackVisible: false,
+        }}
+      />
       <Stack.Screen name="modal" options={{ presentation: "modal" }} />
     </Stack>
   );
