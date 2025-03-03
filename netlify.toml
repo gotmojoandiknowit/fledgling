@@ -1,9 +1,10 @@
 [build]
-  command = "npx expo export:web"
-  publish = "dist"
+  command = "npm run build"
+  publish = "web-build"
 
 [build.environment]
   NODE_VERSION = "18"
+  NPM_FLAGS = "--no-optional"
 
 [[redirects]]
   from = "/*"
