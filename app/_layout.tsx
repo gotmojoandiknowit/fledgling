@@ -54,14 +54,6 @@ function RootLayoutNav() {
           headerTitleAlign: 'center',
         }} 
       />
-      <Stack.Screen 
-        name="hotspots" 
-        options={{
-          headerTitle: () => <LogoImage />,
-          headerTitleAlign: 'center',
-          headerBackVisible: false,
-        }}
-      />
       <Stack.Screen name="modal" options={{ presentation: "modal" }} />
     </Stack>
   );
